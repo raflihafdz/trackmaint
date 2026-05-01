@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ChecklistType {
+  MOBIL_FOAM_TENDER
+  CONVEYOR_KEDATANGAN
+  CONVEYOR_KEBERANGKATAN
+  TRAKTOR
+  MOBIL_OPERASIONAL
+}
+
+enum DailyCheckStatus {
+  NORMAL
+  GANGGUAN
+  KOSONG
+}
+
+model ChecklistEntry {
+  id                 String         @id @default(cuid())
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  fasilitas          String
+  peralatan          String
+  merkType           String
+  bulan              String
+  tahun              String
+  checklistType      ChecklistType
+  keterangan         String?
+  petugas            String[]       @default([])
+  koordinatorNama    String
+  koordinatorNIP     String
+  koordinatorUnit    String
+  highlightStartDay  Int            @default(18)  // Start of highlight range
+  highlightEndDay    Int            @default(24)  // End of highlight range
+  
+  dailyChecks        DailyCheck[]
+
+  @@index([createdAt])
+  @@index([checklistType])
+}
+
+model DailyCheck {
+  id                 String         @id @default(cuid())
+  entryId            String
+  entry              ChecklistEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  itemNo             Int
+  itemLabel          String
+  tanggal            Int            // 1-31
+  status             DailyCheckStatus @default(KOSONG)
+
+  @@unique([entryId, itemNo, tanggal])
+  @@index([entryId])
+}
