@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import puppeteer from "puppeteer";
 
 function generatePDFHTML(entry: any, dailyChecks: any[]) {
   // Group daily checks by item
@@ -18,22 +17,23 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
     .map(Number)
     .sort((a, b) => a - b);
 
-  // Get highlight range from entry
-  const highlightStart = entry.highlightStartDay || 18;
-  const highlightEnd = entry.highlightEndDay || 24;
+  // Helper function to check if day is in any highlight range
+  const isHighlightDay = (day: number): boolean => {
+    const ranges = entry.highlightRanges || [{ start: 18, end: 24 }];
+    return ranges.some((range: any) => day >= range.start && day <= range.end);
+  };
 
   let tableHTML = "";
 
   // Create header row with dates
-  let dateHeader = '<tr><th style="border: 1px solid #000; padding: 8px; font-weight: bold; width: 30px;">No</th>';
+  let dateHeader = '<tr style="background-color: white;"><th style="border: 1px solid #000; padding: 8px; font-weight: bold; width: 30px;">No</th>';
   dateHeader += '<th style="border: 1px solid #000; padding: 8px; font-weight: bold; width: 200px;">Item Checklist</th>';
 
   for (let day = 1; day <= 31; day++) {
-    const bgColor =
-      day >= highlightStart && day <= highlightEnd
-        ? "background-color: #ff9999; font-weight: bold;"
-        : "background-color: #ffffff;";
-    dateHeader += `<th style="border: 1px solid #000; padding: 4px; font-size: 10px; width: 20px; ${bgColor}">${day}</th>`;
+    const isHighlight = isHighlightDay(day);
+    const bgColor = isHighlight ? "#FF0000" : "#FFFFFF";
+    const textColor = isHighlight ? "white" : "black";
+    dateHeader += `<th style="border: 2px solid #000; padding: 4px; font-size: 10px; width: 20px; background-color: ${bgColor}; color: ${textColor}; font-weight: bold;">${day}</th>`;
   }
   dateHeader += "</tr>";
   tableHTML += dateHeader;
@@ -48,15 +48,14 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
     for (let day = 1; day <= 31; day++) {
       const status = checksByItem[itemNo][day] || "KOSONG";
       let symbol = "";
-      let bgColor =
-        day >= highlightStart && day <= highlightEnd
-          ? "background-color: #ff9999;"
-          : "background-color: #ffffff;";
+      const isHighlight = isHighlightDay(day);
+      const bgColor = isHighlight ? "#FF0000" : "#FFFFFF";
+      const textColor = isHighlight ? "white" : "black";
 
       if (status === "NORMAL") symbol = "✓";
       else if (status === "GANGGUAN") symbol = "✗";
 
-      row += `<td style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 12px; ${bgColor}">${symbol}</td>`;
+      row += `<td style="border: 1px solid #000; padding: 4px; text-align: center; font-size: 12px; background-color: ${bgColor}; color: ${textColor}; font-weight: bold;">${symbol}</td>`;
     }
 
     row += "</tr>";
@@ -70,10 +69,25 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
       <meta charset="UTF-8">
       <title>Checklist Pemeliharaan</title>
       <style>
+        * {
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
+          color-adjust: exact !important;
+        }
         body {
           font-family: Arial, sans-serif;
           margin: 10px;
           font-size: 11px;
+        }
+        @media print {
+          * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          body {
+            margin: 0;
+            padding: 0;
+          }
         }
         .header {
           text-align: center;
@@ -157,7 +171,7 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
         </div>
         <div class="info-item">
           <span class="info-label">Hari Merah:</span>
-          <span class="info-value">Hari ${highlightStart} - ${highlightEnd}</span>
+          <span class="info-value">${(entry.highlightRanges || [{ start: 18, end: 24 }]).map((range: any) => `Hari ${range.start} - ${range.end}`).join(", ")}</span>
         </div>
       </div>
 
@@ -214,28 +228,7 @@ export async function GET(
 
     const htmlContent = generatePDFHTML(entry, entry.dailyChecks);
 
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-
-    const page = await browser.newPage();
-    await page.setContent(htmlContent, { waitUntil: "networkidle0" });
-
-    const pdfBuffer = await page.pdf({
-      format: "A4",
-      landscape: true,
-      margin: { top: 10, bottom: 10, left: 10, right: 10 },
-    });
-
-    await browser.close();
-
-    return new NextResponse(Buffer.from(pdfBuffer), {
-      headers: {
-        "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename="checklist-${id}.pdf"`,
-      },
-    });
+    return NextResponse.json({ html: htmlContent });
   } catch (error) {
     console.error("GET /api/checklist/[id]/pdf error:", error);
     return NextResponse.json(

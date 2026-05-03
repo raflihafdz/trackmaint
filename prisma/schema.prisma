@@ -39,8 +39,7 @@ model ChecklistEntry {
   koordinatorNama    String
   koordinatorNIP     String
   koordinatorUnit    String
-  highlightStartDay  Int            @default(18)  // Start of highlight range
-  highlightEndDay    Int            @default(24)  // End of highlight range
+  highlightRanges    Json           @default("[{\"start\": 18, \"end\": 24}]")  // Array of {start, end} objects
   
   dailyChecks        DailyCheck[]
 
@@ -54,7 +53,7 @@ model DailyCheck {
   entry              ChecklistEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
   itemNo             Int
   itemLabel          String
-  tanggal            Int            // 1-31
+  tanggal            Int            // Day 1-31
   status             DailyCheckStatus @default(KOSONG)
 
   @@unique([entryId, itemNo, tanggal])

@@ -62,13 +62,18 @@ export default function NewChecklistPage() {
   const [koordinatorNama, setKoordinatorNama] = useState("");
   const [koordinatorNIP, setKoordinatorNIP] = useState("");
   const [koordinatorUnit, setKoordinatorUnit] = useState("");
-  const [highlightStartDay, setHighlightStartDay] = useState(18);
-  const [highlightEndDay, setHighlightEndDay] = useState(24);
+  const [highlightRanges, setHighlightRanges] = useState<Array<{ start: number; end: number }>>([
+    { start: 18, end: 24 },
+  ]);
 
   // Daily checks state
   const [dailyChecks, setDailyChecks] = useState<Record<string, DailyCheckStatus>>({});
 
   const items = getChecklistItems(checklistType);
+
+  const isHighlightDay = (day: number): boolean => {
+    return highlightRanges.some((range) => day >= range.start && day <= range.end);
+  };
 
   const handleAddPetugas = () => {
     if (petugasDraft.trim()) {
@@ -137,13 +142,13 @@ export default function NewChecklistPage() {
   };
 
   const getCellColor = (status: DailyCheckStatus, day: number) => {
-    const isHighlightDay = day >= highlightStartDay && day <= highlightEndDay;
+    const isHighlight = isHighlightDay(day);
     const baseColor =
       status === "NORMAL"
         ? "bg-green-100"
         : status === "GANGGUAN"
           ? "bg-red-100"
-          : isHighlightDay
+          : isHighlight
             ? "bg-red-50"
             : "bg-white";
 
@@ -185,8 +190,7 @@ export default function NewChecklistPage() {
           koordinatorNama,
           koordinatorNIP,
           koordinatorUnit,
-          highlightStartDay,
-          highlightEndDay,
+          highlightRanges,
           dailyChecks: checksArray,
         }),
       });
@@ -309,32 +313,66 @@ export default function NewChecklistPage() {
               <div className="border-t pt-4">
                 <h3 className="text-lg font-semibold mb-4">Pengaturan Hari Merah</h3>
                 <p className="text-sm text-gray-600 mb-4">
-                  Pilih rentang hari yang akan ditandai dengan warna merah (default: 18-24)
+                  Tambahkan satu atau lebih rentang hari yang akan ditandai dengan warna merah
                 </p>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="highlightStartDay">Hari Mulai *</Label>
-                    <Input
-                      id="highlightStartDay"
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={highlightStartDay}
-                      onChange={(e) => setHighlightStartDay(Math.max(1, Math.min(31, parseInt(e.target.value) || 1)))}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="highlightEndDay">Hari Akhir *</Label>
-                    <Input
-                      id="highlightEndDay"
-                      type="number"
-                      min="1"
-                      max="31"
-                      value={highlightEndDay}
-                      onChange={(e) => setHighlightEndDay(Math.max(1, Math.min(31, parseInt(e.target.value) || 31)))}
-                    />
-                  </div>
+                <div className="space-y-3 mb-4">
+                  {highlightRanges.map((range, idx) => (
+                    <div key={idx} className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <Label htmlFor={`start-${idx}`}>Hari Mulai</Label>
+                        <Input
+                          id={`start-${idx}`}
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={range.start}
+                          onChange={(e) => {
+                            const newRanges = [...highlightRanges];
+                            newRanges[idx].start = Math.max(1, Math.min(31, parseInt(e.target.value) || 1));
+                            setHighlightRanges(newRanges);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Label htmlFor={`end-${idx}`}>Hari Akhir</Label>
+                        <Input
+                          id={`end-${idx}`}
+                          type="number"
+                          min="1"
+                          max="31"
+                          value={range.end}
+                          onChange={(e) => {
+                            const newRanges = [...highlightRanges];
+                            newRanges[idx].end = Math.max(1, Math.min(31, parseInt(e.target.value) || 31));
+                            setHighlightRanges(newRanges);
+                          }}
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => {
+                          setHighlightRanges(highlightRanges.filter((_, i) => i !== idx));
+                        }}
+                        disabled={highlightRanges.length === 1}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
                 </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setHighlightRanges([...highlightRanges, { start: 1, end: 10 }]);
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Tambah Rentang
+                </Button>
               </div>
 
               <div>
@@ -423,6 +461,61 @@ export default function NewChecklistPage() {
     );
   }
 
+  // Render HARIAN (Daily) Grid - 31 columns
+  const renderHarianGrid = () => (
+    <div className="overflow-x-auto mb-6">
+      <Table className="text-xs">
+        <TableHeader>
+          <TableRow>
+            <TableHead className="w-8 text-center">No</TableHead>
+            <TableHead className="min-w-48">Item</TableHead>
+            {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
+              const isHighlight = isHighlightDay(day);
+              return (
+                <TableHead
+                  key={day}
+                  className={`w-6 h-8 p-0 text-center text-xs font-bold ${isHighlight ? "bg-red-200" : ""}`}
+                >
+                  {day}
+                </TableHead>
+              );
+            })}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {items.map((item) => (
+            <TableRow key={item.no} className="hover:bg-gray-50">
+              <TableCell className="text-center font-bold text-xs w-8">
+                {item.no}
+              </TableCell>
+              <TableCell className="font-medium text-xs min-w-48">
+                {item.label}
+              </TableCell>
+              {Array.from({ length: 31 }, (_, i) => i + 1).map(
+                (day) => {
+                  const key = `${item.no}-${day}`;
+                  const status = dailyChecks[key] || "KOSONG";
+                  const bgColor = getCellColor(status, day);
+
+                  return (
+                    <TableCell
+                      key={key}
+                      className={`w-6 h-8 p-0 text-center cursor-pointer text-sm font-bold ${bgColor} border-l border-r ${isHighlightDay(day) ? "border-red-300" : ""}`}
+                      onClick={() => toggleDailyCheckStatus(item.no, day)}
+                      title={status}
+                    >
+                      {getCellSymbol(status)}
+                    </TableCell>
+                  );
+                }
+              )}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+
   return (
     <main className="p-6 max-w-full mx-auto">
       <Card>
@@ -438,58 +531,7 @@ export default function NewChecklistPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmitGrid}>
-            <div className="overflow-x-auto mb-6">
-              <Table className="text-xs">
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-8 text-center">No</TableHead>
-                    <TableHead className="min-w-48">Item</TableHead>
-                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
-                      const isHighlight = day >= highlightStartDay && day <= highlightEndDay;
-                      return (
-                        <TableHead
-                          key={day}
-                          className={`w-6 h-8 p-0 text-center text-xs font-bold ${isHighlight ? "bg-red-200" : ""}`}
-                        >
-                          {day}
-                        </TableHead>
-                      );
-                    })}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.no} className="hover:bg-gray-50">
-                      <TableCell className="text-center font-bold text-xs w-8">
-                        {item.no}
-                      </TableCell>
-                      <TableCell className="font-medium text-xs min-w-48">
-                        {item.label}
-                      </TableCell>
-                      {Array.from({ length: 31 }, (_, i) => i + 1).map(
-                        (day) => {
-                          const key = `${item.no}-${day}`;
-                          const status = dailyChecks[key] || "KOSONG";
-                          const isHighlight = day >= highlightStartDay && day <= highlightEndDay;
-                          const bgColor = getCellColor(status, day);
-
-                          return (
-                            <TableCell
-                              key={key}
-                              className={`w-6 h-8 p-0 text-center cursor-pointer text-sm font-bold ${bgColor} border-l border-r ${isHighlight ? "border-red-300" : ""}`}
-                              onClick={() => toggleDailyCheckStatus(item.no, day)}
-                              title={status}
-                            >
-                              {getCellSymbol(status)}
-                            </TableCell>
-                          );
-                        }
-                      )}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            {renderHarianGrid()}
 
             <div className="bg-blue-50 p-4 rounded mb-6 text-sm">
               <p className="font-semibold mb-2">Keterangan:</p>

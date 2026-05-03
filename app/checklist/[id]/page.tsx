@@ -30,8 +30,7 @@ interface ChecklistData {
   koordinatorNama: string;
   koordinatorNIP: string;
   koordinatorUnit: string;
-  highlightStartDay: number;
-  highlightEndDay: number;
+  highlightRanges: Array<{ start: number; end: number }>;
   createdAt: string;
   dailyChecks: Array<{
     id: string;
@@ -73,17 +72,25 @@ export default function ViewChecklistPage() {
   const handleDownloadPDF = async () => {
     setDownloadingPDF(true);
     try {
+      // Fetch HTML content dari API
       const res = await fetch(`/api/checklist/${id}/pdf`);
       if (!res.ok) throw new Error("Failed to generate PDF");
 
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `checklist-${id}.pdf`;
-      a.click();
-      window.URL.revokeObjectURL(url);
-      toast.success("PDF downloaded successfully");
+      const data = await res.json();
+      const htmlContent = data.html;
+
+      // Open HTML in new window, user can print to PDF
+      const newWindow = window.open("", "", "width=1200,height=800");
+      if (newWindow) {
+        newWindow.document.write(htmlContent);
+        newWindow.document.close();
+        // Trigger print dialog
+        setTimeout(() => {
+          newWindow.print();
+        }, 250);
+      }
+
+      toast.success("PDF ready for download - use Print dialog");
     } catch (error) {
       console.error(error);
       toast.error("Failed to download PDF");
@@ -103,14 +110,19 @@ export default function ViewChecklistPage() {
     }
   };
 
-  const getCellColor = (status: string, day: number, highlightStart: number, highlightEnd: number) => {
-    const isHighlightDay = day >= highlightStart && day <= highlightEnd;
+  const isHighlightDay = (day: number): boolean => {
+    if (!checklist) return false;
+    return checklist.highlightRanges.some((range) => day >= range.start && day <= range.end);
+  };
+
+  const getCellColor = (status: string, day: number): string => {
+    const isHighlight = isHighlightDay(day);
     const baseColor =
       status === "NORMAL"
         ? "bg-green-100"
         : status === "GANGGUAN"
           ? "bg-red-100"
-          : isHighlightDay
+          : isHighlight
             ? "bg-red-50"
             : "bg-white";
 
@@ -170,6 +182,11 @@ export default function ViewChecklistPage() {
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle>Detail Checklist</CardTitle>
           <div className="flex gap-2">
+            <Link href={`/checklist/${id}/edit`}>
+              <Button className="gap-2">
+                Edit Checklist
+              </Button>
+            </Link>
             <Button
               variant="outline"
               onClick={handleDownloadPDF}
@@ -227,7 +244,7 @@ export default function ViewChecklistPage() {
             <div>
               <h3 className="font-semibold text-gray-700">Hari Merah</h3>
               <p className="text-gray-900">
-                Hari {checklist.highlightStartDay} - {checklist.highlightEndDay}
+                {checklist.highlightRanges.map((range) => `Hari ${range.start} - ${range.end}`).join(", ")}
               </p>
             </div>
           </div>
@@ -240,7 +257,7 @@ export default function ViewChecklistPage() {
                   <TableHead className="w-8 text-center">No</TableHead>
                   <TableHead className="min-w-48">Item</TableHead>
                   {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => {
-                    const isHighlight = day >= checklist.highlightStartDay && day <= checklist.highlightEndDay;
+                    const isHighlight = isHighlightDay(day);
                     return (
                       <TableHead
                         key={day}
@@ -268,8 +285,8 @@ export default function ViewChecklistPage() {
                       {Array.from({ length: 31 }, (_, i) => i + 1).map(
                         (day) => {
                           const status = checksByItem[itemNo][day] || "KOSONG";
-                          const isHighlight = day >= checklist.highlightStartDay && day <= checklist.highlightEndDay;
-                          const bgColor = getCellColor(status, day, checklist.highlightStartDay, checklist.highlightEndDay);
+                          const isHighlight = isHighlightDay(day);
+                          const bgColor = getCellColor(status, day);
 
                           return (
                             <TableCell

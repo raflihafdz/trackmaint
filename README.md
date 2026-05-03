@@ -16,11 +16,9 @@ Aplikasi web full-stack untuk digitalisasi form checklist pemeliharaan "Checklis
 
 - **Backend**: Next.js API Routes# or
 
-- **Database**: PostgreSQL (Neon) + Prisma ORM v6yarn dev
-
-- **PDF Generation**: Puppeteer# or
-
-- **UI Components**: shadcn/ui with Radix UIpnpm dev
+- **Database**: PostgreSQL (Neon) + Prisma ORM v6
+- **PDF Generation**: Browser native print-to-PDF
+- **UI Components**: shadcn/ui with Radix UI
 
 - **Notifications**: React Toastify# or
 
@@ -38,7 +36,7 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 - ✅ View detail checklist dengan grid harian interaktif
 
-- ✅ Generate PDF checklist dengan PuppeteerThis project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- ✅ Generate PDF checklist dengan browser print dialog
 
 - ✅ Grid harian dengan 31 hari, highlight khusus untuk hari 18-24
 
@@ -176,10 +174,6 @@ npx prisma studio   # Prisma GUI
 **Database Connection Error**
 - Pastikan DATABASE_URL di .env.local benar
 - Jika Neon, pastikan SSL mode enabled: ?sslmode=require
-
-**Puppeteer Error**
-- Jalankan: npm install puppeteer --force
-- Pada Linux, install: libgtk-3-0 libx11-6
 
 **Build Errors**
 - Run: npm run build untuk validate

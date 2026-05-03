@@ -12,7 +12,7 @@ export async function GET(
       where: { id },
       include: {
         dailyChecks: {
-          orderBy: { tanggal: "asc" },
+          orderBy: [{ itemNo: "asc" }, { tanggal: "asc" }],
         },
       },
     });

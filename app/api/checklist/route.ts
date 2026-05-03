@@ -42,8 +42,7 @@ export async function POST(request: NextRequest) {
       koordinatorNama,
       koordinatorNIP,
       koordinatorUnit,
-      highlightStartDay = 18,
-      highlightEndDay = 24,
+      highlightRanges = [{ start: 18, end: 24 }],
       dailyChecks,
     } = body;
 
@@ -60,8 +59,7 @@ export async function POST(request: NextRequest) {
         koordinatorNama,
         koordinatorNIP,
         koordinatorUnit,
-        highlightStartDay,
-        highlightEndDay,
+        highlightRanges: highlightRanges as any,
       },
     });
 
