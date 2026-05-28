@@ -23,6 +23,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { getChecklistItems } from "@/lib/checklist-items";
+import { FASILITAS_OPTIONS, PERALATAN_OPTIONS, PERALATAN_TO_CHECKLIST_TYPE } from "@/lib/master-data";
 import { Loader2, Plus, X } from "lucide-react";
 import { toast } from "react-toastify";
 
@@ -220,21 +221,43 @@ export default function NewChecklistPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="fasilitas">Fasilitas *</Label>
-                  <Input
-                    id="fasilitas"
-                    value={fasilitas}
-                    onChange={(e) => setFasilitas(e.target.value)}
-                    placeholder="UPBU Kelas III Raja Haji Abdullah"
-                  />
+                  <Select value={fasilitas} onValueChange={setFasilitas}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih Fasilitas" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {FASILITAS_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label htmlFor="peralatan">Peralatan *</Label>
-                  <Input
-                    id="peralatan"
+                  <Select
                     value={peralatan}
-                    onChange={(e) => setPeralatan(e.target.value)}
-                    placeholder="Mobil Foam Tender"
-                  />
+                    onValueChange={(value) => {
+                      setPeralatan(value);
+                      // Auto-set checklistType based on peralatan selection
+                      const checklistType = PERALATAN_TO_CHECKLIST_TYPE[value];
+                      if (checklistType) {
+                        setChecklistType(checklistType);
+                      }
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Pilih Peralatan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PERALATAN_OPTIONS.map((opt) => (
+                        <SelectItem key={opt} value={opt}>
+                          {opt}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

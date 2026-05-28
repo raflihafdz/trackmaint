@@ -51,7 +51,7 @@ export const checklistItemsByType: Record<ChecklistType, ChecklistItemDef[]> = {
     { no: 2, label: "Periksa air radiator" },
     { no: 3, label: "Periksa saringan udara" },
     { no: 4, label: "Periksa level solar" },
-    { no: 5, label: "Periksa ketegangan tali kipas, setel kembali bila perlu" },
+    { no: 5, label: "Periksa ketegangan belting, setel kembali bila perlu" },
     { no: 6, label: "Periksa tekanan ban, tekanan yang diperlukan 15-23 Psi" },
     { no: 7, label: "Periksa hidrolik setiap tanki (beberapa menit setelah mesin hidup)" },
     { no: 8, label: "Periksa indikator pembersih udara (selagi mesin hidup)" },
