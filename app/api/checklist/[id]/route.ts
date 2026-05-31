@@ -34,6 +34,50 @@ export async function GET(
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const body = await request.json();
+    const { signedBy, signatureImage } = body;
+
+    if (!signedBy || typeof signedBy !== "string") {
+      return NextResponse.json(
+        { error: "signedBy is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!signatureImage || typeof signatureImage !== "string") {
+      return NextResponse.json(
+        { error: "signatureImage is required" },
+        { status: 400 }
+      );
+    }
+
+    const data: any = {
+      signedBy,
+      signedAt: new Date(),
+      signatureImage,
+    };
+
+    const entry = await prisma.checklistEntry.update({
+      where: { id },
+      data,
+    });
+
+    return NextResponse.json(entry);
+  } catch (error) {
+    console.error("PUT /api/checklist/[id] error:", error);
+    return NextResponse.json(
+      { error: "Failed to update checklist" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

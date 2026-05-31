@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +38,9 @@ interface ChecklistData {
   koordinatorNama: string;
   koordinatorNIP: string;
   koordinatorUnit: string;
+  signedBy?: string | null;
+  signedAt?: string | null;
+  signatureImage?: string | null;
   highlightRanges: Array<{ start: number; end: number }>;
   createdAt: string;
   dailyChecks: DailyCheck[];
@@ -52,6 +55,10 @@ export default function EditChecklistPage() {
   const [dailyChecks, setDailyChecks] = useState<Record<string, DailyCheckStatus>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [signing, setSigning] = useState(false);
+  const [signatureData, setSignatureData] = useState<string | null>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
   useEffect(() => {
     fetchChecklist();
@@ -63,6 +70,7 @@ export default function EditChecklistPage() {
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setChecklist(data);
+  setSignatureData(data.signatureImage || null);
 
       // Konversi dailyChecks ke object untuk editing
       const checksMap: Record<string, DailyCheckStatus> = {};
@@ -126,27 +134,116 @@ export default function EditChecklistPage() {
     return baseColor;
   };
 
+  const SIGNATURE_WIDTH = 520;
+  const SIGNATURE_HEIGHT = 200;
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = SIGNATURE_WIDTH * ratio;
+    canvas.height = SIGNATURE_HEIGHT * ratio;
+    canvas.style.width = `${SIGNATURE_WIDTH}px`;
+    canvas.style.height = `${SIGNATURE_HEIGHT}px`;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(ratio, ratio);
+    ctx.lineWidth = 2;
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "#111827";
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+
+    if (signatureData && !checklist?.signedAt) {
+      const img = new Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+      };
+      img.src = signatureData;
+    }
+  }, [checklist?.id, checklist?.signedAt, signatureData]);
+
+  const handleSignaturePointerDown = (
+    event: PointerEvent<HTMLCanvasElement>
+  ) => {
+    if (checklist?.signedAt) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    canvas.setPointerCapture(event.pointerId);
+    const rect = canvas.getBoundingClientRect();
+    ctx.beginPath();
+    ctx.moveTo(event.clientX - rect.left, event.clientY - rect.top);
+    setIsDrawing(true);
+  };
+
+  const handleSignaturePointerMove = (
+    event: PointerEvent<HTMLCanvasElement>
+  ) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const rect = canvas.getBoundingClientRect();
+
+    ctx.lineTo(event.clientX - rect.left, event.clientY - rect.top);
+    ctx.stroke();
+  };
+
+  const handleSignaturePointerUp = (
+    event: PointerEvent<HTMLCanvasElement>
+  ) => {
+    if (!isDrawing) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.releasePointerCapture(event.pointerId);
+    setIsDrawing(false);
+    setSignatureData(canvas.toDataURL("image/png"));
+  };
+
+  const handleClearSignature = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, SIGNATURE_WIDTH, SIGNATURE_HEIGHT);
+    setSignatureData(null);
+  };
+
+  const buildUpdates = () => {
+    if (!checklist) return [];
+    const updates: Array<{ id: string; status: DailyCheckStatus }> = [];
+
+    checklist.dailyChecks.forEach((check) => {
+      const key = `${check.itemNo}-${check.tanggal}`;
+      const newStatus = dailyChecks[key] || "KOSONG";
+      if (newStatus !== check.status) {
+        updates.push({
+          id: check.id,
+          status: newStatus,
+        });
+      }
+    });
+
+    return updates;
+  };
+
   const handleSaveChanges = async () => {
     if (!checklist) return;
     setSaving(true);
 
     try {
-      // Konversi dailyChecks object ke array untuk API
-      const updates: Array<{
-        id: string;
-        status: DailyCheckStatus;
-      }> = [];
-
-      checklist.dailyChecks.forEach((check) => {
-        const key = `${check.itemNo}-${check.tanggal}`;
-        const newStatus = dailyChecks[key] || "KOSONG";
-        if (newStatus !== check.status) {
-          updates.push({
-            id: check.id,
-            status: newStatus,
-          });
-        }
-      });
+      const updates = buildUpdates();
 
       if (updates.length === 0) {
         toast.info("Tidak ada perubahan");
@@ -174,6 +271,39 @@ export default function EditChecklistPage() {
       toast.error(`Failed to save changes: ${error}`);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSignChecklist = async () => {
+    if (!checklist) return;
+    if (!signatureData) {
+      toast.error("Harap isi tanda tangan terlebih dahulu");
+      return;
+    }
+    setSigning(true);
+
+    try {
+      const res = await fetch(`/api/checklist/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          signedBy: checklist.koordinatorNama,
+          signatureImage: signatureData,
+        }),
+      });
+
+      const responseData = await res.json();
+      if (!res.ok) {
+        throw new Error(responseData.error || "Failed to sign checklist");
+      }
+
+      toast.success("Checklist berhasil ditandatangani!");
+      await fetchChecklist();
+    } catch (error) {
+      console.error(error);
+      toast.error(`Gagal tanda tangan: ${error}`);
+    } finally {
+      setSigning(false);
     }
   };
 
@@ -209,6 +339,19 @@ export default function EditChecklistPage() {
       ])
     ).values()
   ).sort((a, b) => a.no - b.no);
+
+  const requiredDays = Array.from({ length: 31 }, (_, i) => i + 1).filter(
+    (day) => !isHighlightDay(day)
+  );
+
+  const pendingUpdates = buildUpdates();
+
+  const isEligibleForSignature = items.every((item) =>
+    requiredDays.every((day) => {
+      const status = dailyChecks[`${item.no}-${day}`] || "KOSONG";
+      return status !== "KOSONG";
+    })
+  );
 
   return (
     <main className="p-6 max-w-full mx-auto">
@@ -305,6 +448,88 @@ export default function EditChecklistPage() {
                 Hari merah ditandai dengan background lebih gelap pada header
               </li>
             </ul>
+          </div>
+
+          <div className="bg-emerald-50 p-4 rounded mb-6 text-sm border-l-4 border-emerald-400">
+            <p className="font-semibold mb-2">Tanda Tangan Koordinator</p>
+            {checklist.signedAt ? (
+              <div className="text-emerald-700">
+                <p className="font-semibold">Mengetahui,</p>
+                {checklist.signatureImage && (
+                  <img
+                    src={checklist.signatureImage}
+                    alt="Tanda tangan koordinator"
+                    className="mt-3 border rounded bg-white max-w-full"
+                  />
+                )}
+                <p className="mt-2 font-medium">
+                  {checklist.signedBy || checklist.koordinatorNama}
+                </p>
+                <p>{checklist.koordinatorNIP}</p>
+                <p>{checklist.koordinatorUnit}</p>
+                <p className="text-xs text-emerald-800">
+                  Ditandatangani: {new Date(checklist.signedAt).toLocaleString("id-ID")}
+                </p>
+              </div>
+            ) : (
+              <div className="text-gray-700 space-y-1">
+                <p>
+                  Tanda tangan akan aktif jika semua checklist (selain tanggal merah) sudah terisi.
+                </p>
+                <div className="bg-white border rounded p-2 inline-block">
+                  <canvas
+                    ref={canvasRef}
+                    className="border rounded bg-white touch-none"
+                    onPointerDown={handleSignaturePointerDown}
+                    onPointerMove={handleSignaturePointerMove}
+                    onPointerUp={handleSignaturePointerUp}
+                    onPointerLeave={handleSignaturePointerUp}
+                  />
+                </div>
+                <div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleClearSignature}
+                    disabled={signing}
+                  >
+                    Hapus Tanda Tangan
+                  </Button>
+                </div>
+                {!isEligibleForSignature && (
+                  <p className="text-amber-700">
+                    Masih ada item yang belum terchecklist pada tanggal non-merah.
+                  </p>
+                )}
+                {pendingUpdates.length > 0 && (
+                  <p className="text-amber-700">
+                    Simpan perubahan terlebih dahulu sebelum tanda tangan.
+                  </p>
+                )}
+                {!signatureData && (
+                  <p className="text-amber-700">
+                    Tanda tangan masih kosong.
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="mt-3">
+              <Button
+                type="button"
+                onClick={handleSignChecklist}
+                disabled={
+                  signing ||
+                  !!checklist.signedAt ||
+                  !isEligibleForSignature ||
+                  pendingUpdates.length > 0 ||
+                  !signatureData
+                }
+              >
+                {signing && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                Tandatangani sebagai {checklist.koordinatorNama}
+              </Button>
+            </div>
           </div>
 
           <div className="flex gap-4 justify-end">

@@ -30,6 +30,9 @@ interface ChecklistData {
   koordinatorNama: string;
   koordinatorNIP: string;
   koordinatorUnit: string;
+  signedBy?: string | null;
+  signedAt?: string | null;
+  signatureImage?: string | null;
   highlightRanges: Array<{ start: number; end: number }>;
   createdAt: string;
   dailyChecks: Array<{
@@ -332,6 +335,30 @@ export default function ViewChecklistPage() {
               </p>
               <p className="text-gray-700">NIP: {checklist.koordinatorNIP}</p>
               <p className="text-gray-700">Unit: {checklist.koordinatorUnit}</p>
+              <div className="mt-3 text-sm">
+                {checklist.signedAt ? (
+                  <div className="text-emerald-700">
+                    <p className="font-semibold">Mengetahui,</p>
+                    {checklist.signatureImage && (
+                      <img
+                        src={checklist.signatureImage}
+                        alt="Tanda tangan koordinator"
+                        className="mt-3 border rounded bg-white max-w-full"
+                      />
+                    )}
+                    <p className="mt-2 font-medium">
+                      {checklist.signedBy || checklist.koordinatorNama}
+                    </p>
+                    <p>{checklist.koordinatorNIP}</p>
+                    <p>{checklist.koordinatorUnit}</p>
+                    <p className="text-xs text-emerald-800">
+                      Ditandatangani: {new Date(checklist.signedAt).toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-amber-700">Belum ditandatangani</p>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>

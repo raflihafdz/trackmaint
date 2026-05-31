@@ -23,6 +23,12 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
     return ranges.some((range: any) => day >= range.start && day <= range.end);
   };
 
+  const signedBy = entry.signedBy || entry.koordinatorNama;
+  const signedAtText = entry.signedAt
+    ? new Date(entry.signedAt).toLocaleString("id-ID")
+    : null;
+  const signatureImage = entry.signatureImage;
+
   let tableHTML = "";
 
   // Create header row with dates
@@ -128,17 +134,18 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
         }
         .footer-section {
           margin-top: 30px;
-          display: grid;
-          grid-template-columns: 1fr 1fr 1fr;
-          gap: 20px;
+          display: flex;
+          justify-content: flex-end;
         }
         .signature-block {
-          text-align: center;
+          text-align: right;
+          min-width: 220px;
         }
-        .signature-line {
-          border-top: 1px solid #000;
-          margin-top: 40px;
-          padding-top: 5px;
+        .signature-image {
+          margin: 8px auto 6px;
+          max-width: 220px;
+          border: 1px solid #000;
+          display: block;
         }
       </style>
     </head>
@@ -193,9 +200,13 @@ function generatePDFHTML(entry: any, dailyChecks: any[]) {
       <div class="footer-section">
         <div class="signature-block">
           <div>Mengetahui,</div>
-          <div class="signature-line">${entry.koordinatorNama}</div>
+          ${signatureImage ? `<img src="${signatureImage}" alt="Tanda tangan" class="signature-image" />` : ""}
+          <div>${signedBy}</div>
           <div>${entry.koordinatorNIP}</div>
           <div>${entry.koordinatorUnit}</div>
+          <div style="margin-top: 6px; font-size: 10px; color: #444;">
+            ${signedAtText ? `Ditandatangani: ${signedAtText}` : "Belum ditandatangani"}
+          </div>
         </div>
       </div>
     </body>

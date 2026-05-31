@@ -39,6 +39,9 @@ model ChecklistEntry {
   koordinatorNama    String
   koordinatorNIP     String
   koordinatorUnit    String
+  signedBy           String?
+  signedAt           DateTime?
+  signatureImage     String?
   highlightRanges    Json           @default("[{\"start\": 18, \"end\": 24}]")  // Array of {start, end} objects
   
   dailyChecks        DailyCheck[]
